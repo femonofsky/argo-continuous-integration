@@ -9,3 +9,4 @@ spec:
     port: 3000
   selector:
     app: argo-webhook
+  type: LoadBalancer
