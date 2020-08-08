@@ -1,112 +1,45 @@
----
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
-metadata: { namespace: argo, generateName: build-push-run- }
+metadata:
+  namespace: pipeline
+  generateName: start-workflow-
 spec:
-  entrypoint: build-push-run
-  volumes:
-    - { name: hub, secret: { secretName: hub, items: [ { key: .dockerconfigjson, path: config.json}]} }
-
+  serviceAccountName: argo
+  entrypoint: start-workflow
   arguments:
     parameters:
-      - { name: app-name, value: poc-nodejs }
-      - { name: repo, value: git@bitbucket.org:Femonofsky/poc-nodejs.git }
-      - { name: ref, value: staging }
-
-      - { name: reg, value: nofsky }
+    - { name: app-name, value: poc-nodejs }
+    - name: repo
+      value: <git_repo_full>
+    - name: ref
+      value: <git_revision>
 
   templates:
-    - name: build-push-run
-      dag:
-        tasks:
-          - name: git-checkout
-            template: git-checkout
-            dependencies: []
-            arguments:
-              parameters:
-                - { name: repo, value: '{{workflow.parameters.repo}}' }
-                - { name: ref, value: '{{workflow.parameters.ref}}' }
-
-          - name: make-build
-            template: make-build
-            dependencies: [git-checkout]
-            arguments:
-              parameters:
-                - { name: app-name, value: '{{workflow.parameters.app-name}}' }
-              artifacts:
-                - { name: src, from: '{{tasks.git-checkout.outputs.artifacts.src}}' }
+  - name: start-workflow
+    inputs:
+      artifacts:
+      - name: git-repo
+        path: /src
+        git:
+          repo: "{{workflow.parameters.repo}}"
+          revision: "{{workflow.parameters.ref}}"
+          sshPrivateKeySecret:
+            name: bitbucket-creds
+            key: id_rsa
+    metadata:
+      labels:
+        app: argo
+    container:
+      resources: 
+        requests:
+          cpu: 50m
+          memory: 50Mi
+        limits: 
+          cpu: 100m
+          memory: 100Mi
+      image: argoproj/argocli
+      env:
+      args: ["submit", "src/argo.yml", "-p", "app-name={{workflow.parameters.app-name}}","-p",
+      "repo={{workflow.parameters.repo}}","-p","ref={{workflow.parameters.ref}}"]
  
-          - name: kaniko-push
-            template: kaniko-push
-            dependencies: [make-build, git-checkout]
-            arguments:
-              parameters:
-                - { name: app-name, value: '{{workflow.parameters.app-name}}' }
-                - { name: reg, value: '{{workflow.parameters.reg}}' }
-                - { name: destination, value: '{{workflow.parameters.app-name}}:{{workflow.parameters.ref}}' }
-              artifacts:
-                - { name: app-bin, from: '{{tasks.make-build.outputs.artifacts.app-bin}}' }
-                - { name: dockerfile, from: '{{tasks.git-checkout.outputs.artifacts.dockerfile}}' }
-
-    # turn a git checkout into a src artifact
-    - name: git-checkout
-      inputs:
-        parameters:
-          - name: repo
-          - name: ref
-        artifacts:
-          - name: src
-            path: /src
-            git:
-              repo: '{{inputs.parameters.repo}}'
-              revision: '{{inputs.parameters.ref}}'
-              depth: 1
-              sshPrivateKeySecret: { name: bitbucket-creds, key: id_rsa }
-      container:
-        image: alpine:3.12
-      outputs:
-        artifacts:
-          - { name: src, path: /src }
-          - { name: dockerfile, path: '/src/NodeBaseDockerfile' }
-
-
-    - name: make-build
-      inputs:
-        parameters:
-          - name: app-name
-        artifacts:
-          - { name: src, path: /src }
-      container:
-          image: node:12.16.1-alpine3.11
-          imagePullPolicy: Always
-          workingDir: /src
-          command: [sh, -c]
-          args: ['
-                npm install --global pkg@4.4.8;
-                npm install .;
-                pkg --targets=node12.16.1-alpine-x64 --output {{inputs.parameters.app-name}} .;
-          ']
-      outputs:
-          artifacts:
-            - { name: app-bin, path: '/src/{{inputs.parameters.app-name}}' }
-
-    - name: kaniko-push
-      inputs:
-        parameters:
-          - name: app-name
-          - name: destination
-          - name: reg
-        artifacts:
-          - { name: app-bin, path: '/workspace/{{inputs.parameters.app-name}}' }
-          - { name: dockerfile, path: /workspace/Dockerfile }
-      container:
-        image: gcr.io/kaniko-project/executor:v0.23.0
-        command:
-          - /kaniko/executor
-          - --cache=true
-          - --reproducible=true
-          - --verbosity=debug
-          - '--build-arg=APP={{inputs.parameters.app-name}}'
-          - '--destination={{inputs.parameters.reg}}/{{inputs.parameters.destination}}'
-        volumeMounts:
-          - { name: hub, mountPath: /kaniko/.docker }
+  

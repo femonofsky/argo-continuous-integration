@@ -4,7 +4,7 @@ metadata:
   labels:
     app: cleanup-workflows
   name: cleanup-workflows
-  namespace: argo
+  namespace: pipeline
 spec:
   schedule: "0 0 * * 0"
   jobTemplate:
@@ -15,7 +15,7 @@ spec:
           containers:
           - name: cleanup-workflows
             image: lachlanevenson/k8s-kubectl:v1.14.2
-            args: ['delete', 'workflows', '--all', '-n', 'argo']
+            args: ['delete', 'workflows', '--all', '-n', 'pipeline']
             resources:
               limits:
                 cpu: 100m

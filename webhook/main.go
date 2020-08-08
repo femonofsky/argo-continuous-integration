@@ -35,17 +35,14 @@ func main() {
 
 		gitRepoName := strings.Split(gitRepo, "/")[1]
 		fullGitRepo := "git@bitbucket.org:" + gitRepo + ".git"
-		// timestamp := strconv.FormatInt(time.Now().UTC().UnixNano(), 10)
 
-		// argoFilename := "argo" + timestamp + ".yml"
 		argoFilename := "argo_.yml"
 
-		items := []string{"staging", "master"}
+		items := []string{"staging", "develop", "qu", "test"}
 		_, found := Find(items, gitRevision)
 		if !found {
 			return
 		}
-
 
 		commandin := "argo submit " + argoFilename + " -p app-name=" + gitRepoName + " -p repo=" + fullGitRepo + " -p ref=" + gitRevision
 		fmt.Println(commandin)
@@ -61,12 +58,11 @@ func main() {
 	_ = r.Run(":3000")
 }
 
-
 func Find(slice []string, val string) (int, bool) {
-    for i, item := range slice {
-        if item == val {
-            return i, true
-        }
-    }
-    return -1, false
+	for i, item := range slice {
+		if item == val {
+			return i, true
+		}
+	}
+	return -1, false
 }

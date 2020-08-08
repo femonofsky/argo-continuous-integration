@@ -2,7 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: argo-webhook-ingres
-  namespace: argo
+  namespace: pipeline
   annotations:
     ingress.kubernetes.io/rewrite-target: /
 spec:
